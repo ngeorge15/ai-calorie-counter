@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: calorie-counter-api
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    # --workers 1 is load-bearing, not a free-tier concession: the Open Food
+    # Facts rate limiter in app/net.py is an in-process bucket. Two workers
+    # would each believe they have the full 15/min budget and together exceed
+    # it. Move the bucket to Mongo before scaling this past one worker.
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 1 --timeout 60
+    healthCheckPath: /api/health
+    envVars:
+      # Set these in the Render dashboard, not here.
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: USDA_API_KEY
+        sync: false
+      - key: OFF_USER_AGENT
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.12.5"

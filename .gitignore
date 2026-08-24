@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Secrets
+.env
+*.env
+!.env.example
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+*.tsbuildinfo
+
+# Native builds
+ios/
+android/
+*.ipa
+*.app
+
+# macOS
+.DS_Store
