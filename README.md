@@ -5,9 +5,10 @@ photos into a logged meal instead of requiring a manual search. Barcode
 scanning and offline logging are built and working; the AI classifier is the
 next phase.
 
-**Status: Phase 0 complete.** Scan → look up → log → sync works end to end,
-offline-first, on a real device. The classifier (Phase 1) hasn't started —
-see [Roadmap](#roadmap).
+**Status: Phase 0 complete, Phase 1 in progress.** Scan → look up → log →
+sync works end to end, offline-first, on a real device. The food classifier
+(Phase 1) has a training pipeline but no trained model yet — see
+[Roadmap](#roadmap).
 
 ## Why this exists
 
@@ -115,8 +116,14 @@ iOS; Android is untested — VisionCamera v5 exposes no equivalent of v4's
 
 - [x] **Phase 0** — auth, offline-first sync, barcode lookup chain, scan-to-log loop
 - [ ] **Phase 0.5** — recent foods, favorites, one-tap re-log
-- [ ] **Phase 1** — food classifier, seeded from a USDA search on its top-3 predictions
-- [ ] **Benchmarks** — classifier accuracy and latency, published in [`benchmarks/`](benchmarks) with the method behind every number
+- [ ] **Phase 1** — food classifier (fine-tuned `efficientnet_lite0` on Food-101, server-side inference), seeded from a USDA search on its top-3 predictions. Training pipeline built ([`model-training/`](model-training)); no trained checkpoint yet.
+- [ ] **Benchmarks** — classifier accuracy (Food-101 test set + real-photo end-to-end), latency, and a fine-tuned-vs-baseline comparison. Methodology written up in [`benchmarks/classifier/METHODOLOGY.md`](benchmarks/classifier/METHODOLOGY.md); no results until there's a trained model to measure.
+
+### Stretch goals (after Phase 1 ships)
+
+- On-device inference via Core ML — the backbone is already chosen for this
+- Multi-item plate detection (segment-then-classify, reusing the Phase 1 classifier per detected region)
+- A zero-shot multimodal-LLM baseline, benchmarked against the trained classifier
 
 No performance or accuracy claims are made here until they're measured — see
 [`benchmarks/`](benchmarks).

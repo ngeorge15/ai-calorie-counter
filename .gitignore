@@ -21,5 +21,10 @@ android/
 *.ipa
 *.app
 
+# Model training (large/binary — datasets and checkpoints don't belong in git)
+model-training/data/
+model-training/checkpoints/
+model-training/.venv/
+
 # macOS
 .DS_Store
