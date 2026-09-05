@@ -48,6 +48,102 @@ export async function lookupBarcode(barcode: string): Promise<LookupResult> {
   }
 }
 
+export type SearchFailureReason =
+  | 'empty_query'
+  | 'auth'
+  | 'rate_limited'
+  | 'upstream_failed'
+  | 'unavailable'
+  | 'unknown';
+
+export type SearchOutcome =
+  | { ok: true; products: SearchResult[] }
+  | { ok: false; reason: SearchFailureReason; message: string };
+
+/** A search candidate. Same normalized shape as a barcode lookup, but
+ *  `barcode` is null and FDC's own id rides along for provenance. */
+export type SearchResult = Product & { fdc_id?: number | null };
+
+/**
+ * Food name -> candidate products.
+ *
+ * This is what makes the photo classifier worth anything: it turns a
+ * predicted name ("chicken curry") into real nutrition data. Without it the
+ * classifier would only ever prefill a text field, leaving the user to type
+ * every number by hand — which is what manual entry already was.
+ *
+ * Deliberately NOT cached locally, mirroring the backend's reasoning:
+ * barcode -> product is a stable 1:1 mapping, which is what makes the MMKV
+ * cache above safe. A free-text query has no single correct answer and the
+ * ranking can legitimately change, so caching it would mean inventing a
+ * staleness policy for a mapping that was never one-to-one.
+ *
+ * An empty result list is a real answer ("nothing matched"), not an error —
+ * callers must distinguish it from the failure reasons, since the backend
+ * deliberately separates the two.
+ */
+export async function searchProducts(query: string): Promise<SearchOutcome> {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return {
+      ok: false,
+      reason: 'empty_query',
+      message: 'Enter something to search for.',
+    };
+  }
+
+  try {
+    const response = await apiFetch<{ products: SearchResult[]; count: number }>(
+      `/api/products/search?q=${encodeURIComponent(trimmed)}`,
+    );
+    return { ok: true, products: response.products ?? [] };
+  } catch (error) {
+    if (error instanceof ApiError) {
+      switch (error.status) {
+        case 400:
+          return {
+            ok: false,
+            reason: 'empty_query',
+            message: 'That search term was empty or too long.',
+          };
+        case 401:
+          return {
+            ok: false,
+            reason: 'auth',
+            message: 'Signed out — log in again to search foods.',
+          };
+        case 429:
+          return {
+            ok: false,
+            reason: 'rate_limited',
+            message: 'Too many searches — wait a moment and try again.',
+          };
+        case 502:
+          return {
+            ok: false,
+            reason: 'upstream_failed',
+            message:
+              "Couldn't reach the food database. You can still enter this meal manually.",
+          };
+        case 503:
+          return {
+            ok: false,
+            reason: 'unavailable',
+            message:
+              'Food search is unavailable right now. You can still enter this meal manually.',
+          };
+        default:
+          return { ok: false, reason: 'unknown', message: error.message };
+      }
+    }
+    return {
+      ok: false,
+      reason: 'unknown',
+      message: 'The search timed out or failed. Try again, or enter it manually.',
+    };
+  }
+}
+
 /** Contribute a product the user typed in after a miss, so next scan hits. */
 export async function contributeProduct(
   barcode: string,
