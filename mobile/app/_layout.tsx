@@ -43,6 +43,10 @@ export default function RootLayout() {
             name="meal/[clientId]"
             options={{ presentation: 'modal', headerShown: true, title: 'Edit meal' }}
           />
+          <Stack.Screen
+            name="photo/review"
+            options={{ presentation: 'modal', headerShown: true, title: 'Confirm meal' }}
+          />
         </Stack>
       </AuthProvider>
     </SafeAreaProvider>

@@ -42,13 +42,22 @@ const num = (value: string): number | null => {
 
 export default function MealEditScreen() {
   const router = useRouter();
-  const { clientId, barcode } = useLocalSearchParams<{
-    clientId: string;
-    barcode?: string;
-  }>();
+  const { clientId, barcode, name, source, modelConfidence } =
+    useLocalSearchParams<{
+      clientId: string;
+      barcode?: string;
+      /** Prefill for a new meal, e.g. a photo classifier's `query` string. */
+      name?: string;
+      /** Origin of this new meal. Defaults to 'manual' — see MealPayload. */
+      source?: 'barcode' | 'photo' | 'manual' | 'recent';
+      /** Model's own confidence, carried through from the photo flow. */
+      modelConfidence?: string;
+    }>();
   const isNew = clientId === 'new';
 
-  const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [draft, setDraft] = useState<Draft>(() =>
+    isNew && name ? { ...EMPTY, name } : EMPTY,
+  );
   const [existing, setExisting] = useState<Meal | null>(null);
   /** Tracks whether the human changed any generated number. */
   const [touched, setTouched] = useState(false);
@@ -93,7 +102,11 @@ export default function MealEditScreen() {
         ...fields,
         barcode: barcode ?? null,
         eatenAt: new Date().toISOString(),
-        source: 'manual',
+        source: source ?? 'manual',
+        // Only set when a classifier produced this row. The confidence is
+        // the model's own, on the query it suggested — not a claim about the
+        // nutrition numbers below, which the user always typed in themselves.
+        modelConfidence: modelConfidence ? Number.parseFloat(modelConfidence) : null,
         userEdited: false,
         deleted: false,
       });

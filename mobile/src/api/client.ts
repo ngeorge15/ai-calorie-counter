@@ -87,3 +87,55 @@ export async function ping(): Promise<boolean> {
     return false;
   }
 }
+
+type UploadOptions = {
+  /**
+   * Long default: a cold Render dyno (~30s) plus actual model inference time
+   * both land inside this window. Callers on a known-warm path may shorten it.
+   */
+  timeoutMs?: number;
+};
+
+/**
+ * multipart/form-data POST, for endpoints that take a file rather than JSON
+ * (currently just /api/classify).
+ *
+ * Deliberately not folded into apiFetch: that function always JSON-encodes
+ * the body and always sets Content-Type: application/json, which is exactly
+ * wrong for a file upload — fetch has to compute the multipart boundary
+ * itself, so Content-Type must be left unset here.
+ */
+export async function apiUpload<T>(
+  path: string,
+  formData: FormData,
+  { timeoutMs = 45_000 }: UploadOptions = {},
+): Promise<T> {
+  const token = await getToken();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    const text = await response.text();
+    const parsed = text ? JSON.parse(text) : null;
+
+    if (!response.ok) {
+      throw new ApiError(
+        response.status,
+        parsed?.error ?? `Request failed (${response.status})`,
+        parsed?.detail,
+      );
+    }
+    return parsed as T;
+  } finally {
+    clearTimeout(timer);
+  }
+}
