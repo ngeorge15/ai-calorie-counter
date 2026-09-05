@@ -23,8 +23,16 @@ def create_app() -> Flask:
     JWTManager(app)
     limiter.init_app(app)
 
-    from .routes import auth_bp, meals_bp, products_bp
+    # 10MB cap, primarily for POST /api/classify's photo upload (see its
+    # contract in routes/classify.py). Applied app-wide rather than per-route
+    # since Flask enforces it at request-parsing time before routing runs;
+    # every other endpoint here only ever receives small JSON bodies, so this
+    # can't realistically affect them.
+    app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
+
+    from .routes import auth_bp, classify_bp, meals_bp, products_bp
     app.register_blueprint(auth_bp)
+    app.register_blueprint(classify_bp)
     app.register_blueprint(meals_bp)
     app.register_blueprint(products_bp)
 
@@ -41,6 +49,13 @@ def create_app() -> Flask:
         # flask-limiter's default body doesn't match that convention, so we
         # override it rather than let a differently-shaped error slip out.
         return jsonify({"error": "too many requests", "detail": str(exc.description)}), 429
+
+    @app.errorhandler(413)
+    def on_payload_too_large(exc):
+        # Werkzeug raises this itself once MAX_CONTENT_LENGTH is exceeded,
+        # before our route code ever runs -- override its default body to
+        # match this app's {"error": ...} convention.
+        return jsonify({"error": "payload too large"}), 413
 
     @app.get("/api/health")
     def health():
