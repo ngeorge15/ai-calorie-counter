@@ -1,0 +1,26 @@
+[
+  {
+    "filename": "img_001.jpg",
+    "ground_truth": "chicken curry",
+    "food101_label": "chicken_curry",
+    "notes": "homemade, overhead angle, kitchen ceiling light"
+  },
+  {
+    "filename": "img_002.jpg",
+    "ground_truth": "margherita pizza slice",
+    "food101_label": "pizza",
+    "notes": "restaurant plate, angled shot, warm lighting"
+  },
+  {
+    "filename": "img_003.jpg",
+    "ground_truth": "protein shake",
+    "food101_label": null,
+    "notes": "NOT one of the 101 trained classes -- included on purpose, see REAL-PHOTOS.md"
+  },
+  {
+    "filename": "img_004.jpg",
+    "ground_truth": "store-bought granola bar, still in wrapper",
+    "food101_label": null,
+    "notes": "packaged, not plated; also outside the 101 classes"
+  }
+]
