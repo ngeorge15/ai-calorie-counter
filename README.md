@@ -118,9 +118,9 @@ iOS; Android is untested — VisionCamera v5 exposes no equivalent of v4's
 
 - [x] **Phase 0** — auth, offline-first sync, barcode lookup chain, scan-to-log loop
 - [ ] **Phase 0.5** — recent foods, favorites, one-tap re-log
-- [x] **Phase 1a** — fine-tune `efficientnet_lite0` on Food-101. 85.78% top-1 / 95.05% top-3 on the held-out test set, 15 epochs, trained on Kaggle's free-tier GPU.
-- [ ] **Phase 1b** — server-side inference endpoint on the Flask backend, seeded into a USDA search on the classifier's top-3 predictions.
-- [ ] **Benchmarks** — real-photo end-to-end accuracy, fine-tuned-vs-baseline comparison, and server latency still pending. Methodology and current results in [`benchmarks/classifier/`](benchmarks/classifier).
+- [x] **Phase 1a** — fine-tune `efficientnet_lite0` on Food-101. 85.78% top-1 / 95.05% top-3 on the held-out test set, 15 epochs, trained on Kaggle's free-tier GPU. A linear probe on the frozen ImageNet features reaches 71.75% top-1, so unfreezing the backbone is worth a measured +14.0 points.
+- [x] **Phase 1b** — `POST /api/classify` serves the checkpoint as ONNX, `GET /api/products/search` turns a predicted food name into candidate products, and the mobile photo flow logs the chosen one with real macros. Not yet deployed.
+- [ ] **Benchmarks** — real-photo end-to-end accuracy and server latency still pending; both need something that can't be shortcut (real photos, and a deployed instance). Methodology and current results in [`benchmarks/classifier/`](benchmarks/classifier).
 
 ### Stretch goals (after Phase 1 ships)
 

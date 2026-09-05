@@ -91,16 +91,26 @@ message and `model-training/NOTES.md`):
   6.0), incompatible with the default image's PyTorch build (sm_70+ only);
   fixed with a cu118-era torch/torchvision build plus `numpy<2` pinning.
 
-No other accuracy or performance number beyond the three above is
+A linear probe on the same frozen backbone reaches 71.75% top-1 / 86.74%
+top-3, which makes the value of unfreezing it a measured +14.0 points rather
+than an assumption. Beyond these, no accuracy or performance number is
 established anywhere in this repo — see
 [`benchmarks/classifier/results.json`](benchmarks/classifier/results.json)
 for what's measured vs. still pending.
 
-### Phase 1b — server-side inference endpoint — **planned**
+### Phase 1b — server-side inference endpoint — **built, not deployed**
 
-Listed in README's roadmap: a Flask endpoint serving the Phase 1a
-checkpoint, seeded into a USDA search on the classifier's top-3 predictions.
-Not yet built as of this writing.
+`POST /api/classify` serves the Phase 1a checkpoint as ONNX via onnxruntime
+rather than PyTorch, because importing torch alone would consume most of the
+free tier's ~512MB. Preprocessing is read from a generated sidecar
+(`checkpoints/preprocessing.json`) rather than hardcoded, so training and
+serving can't silently drift apart.
+
+Building it surfaced a gap the plan had assumed away: the endpoint returns a
+food *name*, and every product lookup in this repo was barcode-keyed, so
+nothing could consume it. `GET /api/products/search` closes that, and the
+mobile photo flow now resolves a prediction to a real product with real
+macros instead of prefilling a text field.
 
 **Why server-side, not on-device, despite an edge-capable backbone**: this
 is the architecture decision `model-training/NOTES.md` points back to —
@@ -109,11 +119,14 @@ stretch goal. The tradeoff this defers is measured, not assumed: per
 `benchmarks/classifier/METHODOLOGY.md`, server latency (cold vs. warm Render
 instance, plus full phone round-trip) is tracked specifically as "the direct
 check on the 'cold-start risk is manageable' call made when choosing
-server-side over on-device inference." That check hasn't been run yet —
-`server_inference_latency` is listed under `not_yet_measured` in
-`results.json`, pending the endpoint this phase builds.
+server-side over on-device inference." That check still hasn't been run:
+the endpoint exists but has not been deployed, so `server_inference_latency`
+remains under `not_yet_measured` in `results.json`. Local dev-machine
+timings are deliberately not recorded as latency — they say nothing about a
+cold shared-CPU free-tier box, which is the only number that tests the
+original call.
 
-### Benchmarks — real-photo accuracy, baseline comparison, latency — **in progress**
+### Benchmarks — real-photo accuracy and latency — **in progress**
 
 README lists this as its own roadmap line, and `benchmarks/classifier/`
 defines the plan in detail. Per `METHODOLOGY.md` and `results.json`:
@@ -121,9 +134,9 @@ defines the plan in detail. Per `METHODOLOGY.md` and `results.json`:
 | Measurement | Status |
 |---|---|
 | Food-101 test-set accuracy (fine-tuned) | done — 85.78% top-1 / 95.05% top-3 |
-| Same metric on pretrained-but-not-fine-tuned backbone (baseline) | pending |
-| Real-photo end-to-end accuracy (30-50 real phone photos through the full classify → USDA-search pipeline) | pending — script not yet written |
-| Server-side inference latency (cold/warm) and full phone round-trip | pending — needs the Phase 1b endpoint deployed first |
+| Linear-probe baseline on frozen ImageNet features | done — 71.75% top-1 / 86.74% top-3, so fine-tuning the backbone is worth +14.0 points |
+| Real-photo end-to-end accuracy (30-50 real phone photos through the full classify → USDA-search pipeline) | pending — harness written (`model-training/eval_real_photos.py`), needs the photos |
+| Server-side inference latency (cold/warm) and full phone round-trip | pending — endpoint built, not yet deployed |
 | Model size / param count for on-device comparison | recorded (13.6MB), to be revisited once an on-device port is attempted |
 
 The methodology doc is explicit about why this exists as written-down
