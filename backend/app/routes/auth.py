@@ -8,6 +8,7 @@ from pymongo.errors import DuplicateKeyError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..db import get_db
+from ..limiter import limiter
 from ..schemas import Credentials
 
 bp = Blueprint("auth", __name__, url_prefix="/api/auth")
@@ -17,7 +18,19 @@ def _parse():
     return Credentials.model_validate(request.get_json(silent=True) or {})
 
 
+# This app has exactly one real user, so these limits are deliberately tight
+# — legitimate traffic never comes close, but they shut down brute force.
+#
+# /register: a real user registers once, ever. 5/hour per IP leaves room for
+# a fumbled first attempt or two (typo'd password, retrying after a 409)
+# without opening the door to an account-creation/enumeration flood.
+#
+# /login: allows for a handful of mistyped passwords across devices without
+# being annoying, while making an online brute-force attempt hopeless — at
+# 10/minute an attacker gets a trickle of guesses against a slow (werkzeug
+# pbkdf2) hash, not a flood.
 @bp.post("/register")
+@limiter.limit("5 per hour")
 def register():
     try:
         creds = _parse()
@@ -40,6 +53,7 @@ def register():
 
 
 @bp.post("/login")
+@limiter.limit("10 per minute")
 def login():
     try:
         creds = _parse()

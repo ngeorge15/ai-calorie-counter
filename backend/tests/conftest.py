@@ -20,8 +20,16 @@ def app(monkeypatch):
     monkeypatch.setattr(db_module, "_db", database)
 
     from app import create_app
+    from app.limiter import limiter
+
     application = create_app()
     application.config["TESTING"] = True
+
+    # The limiter's in-memory storage is process-wide (module-level Limiter
+    # instance), so counts from one test would otherwise carry into the next.
+    # Reset it per test so each test starts with a clean budget.
+    limiter.reset()
+
     return application
 
 

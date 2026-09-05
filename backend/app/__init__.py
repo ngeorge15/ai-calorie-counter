@@ -7,6 +7,8 @@ from flask import Flask, jsonify
 from flask_jwt_extended import JWTManager
 from pydantic import ValidationError
 
+from .limiter import limiter
+
 load_dotenv()
 
 
@@ -19,6 +21,7 @@ def create_app() -> Flask:
     # on a sideloaded app you re-sign weekly would be pure friction.
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = False
     JWTManager(app)
+    limiter.init_app(app)
 
     from .routes import auth_bp, meals_bp, products_bp
     app.register_blueprint(auth_bp)
@@ -31,6 +34,13 @@ def create_app() -> Flask:
         # adopting pydantic over the hand-rolled whitelist that used to live
         # in models/meal.py was to stop silently dropping bad input.
         return jsonify({"error": "validation failed", "detail": exc.errors()}), 422
+
+    @app.errorhandler(429)
+    def on_rate_limited(exc):
+        # Same error shape as every other handler here: {"error": ...}.
+        # flask-limiter's default body doesn't match that convention, so we
+        # override it rather than let a differently-shaped error slip out.
+        return jsonify({"error": "too many requests", "detail": str(exc.description)}), 429
 
     @app.get("/api/health")
     def health():
