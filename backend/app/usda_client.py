@@ -20,6 +20,52 @@ def is_configured() -> bool:
     return bool(os.environ.get("USDA_API_KEY"))
 
 
+class NotConfigured(RuntimeError):
+    """USDA_API_KEY is unset.
+
+    fetch_by_barcode() quietly returns None when unkeyed, because a barcode
+    scan has a silent fallback (Open Food Facts) sitting right behind it in
+    product_service.lookup() -- the caller never needs to know which hop
+    answered. GET /api/products/search has no such fallback (OFF's search is
+    not wired up here -- see routes/products.py), so silently returning an
+    empty list would look identical to "no matches for that name", which is a
+    lie. Callers must catch this and tell the phone honestly that search is
+    unavailable rather than that nothing was found.
+    """
+
+
+def search_by_name(query: str, page_size: int = 10) -> list[dict]:
+    """Free-text search against the same FDC endpoint fetch_by_barcode uses.
+
+    Deliberately NOT restricted to dataType=Branded the way fetch_by_barcode
+    is. That restriction exists there because a barcode can only belong to a
+    packaged/branded product in the first place. A food *name* like "chicken
+    curry" is just as likely to live in FDC's Foundation, SR Legacy, or
+    Survey (FNDDS) data as in a branded product, and narrowing to Branded
+    here would silently prefer a random packaged match over the better
+    generic one.
+
+    Mirrors model-training/usda_search.py's search_food() (same endpoint,
+    same trimmed-result spirit) -- that script lives in a separate venv for
+    the eval harness and is not imported from here, but the params below are
+    kept consistent with it on purpose.
+    """
+    if not is_configured():
+        raise NotConfigured("USDA_API_KEY is not set")
+
+    response = usda_session.get(
+        SEARCH_URL,
+        params={
+            "query": query,
+            "pageSize": page_size,
+            "api_key": os.environ["USDA_API_KEY"],
+        },
+        timeout=TIMEOUT_SECONDS,
+    )
+    response.raise_for_status()
+    return response.json().get("foods", [])
+
+
 def _upc_variants(barcode: str) -> set[str]:
     """UPC-A and EAN-13 are the same number with different zero padding.
 

@@ -93,6 +93,91 @@ def test_upc_padding_variants_match():
     assert not usda_client._upc_variants("049000042566") & usda_client._upc_variants("049000042567")
 
 
+SEARCH_FOOD = {
+    "fdcId": 123456,
+    "description": "chicken curry",
+    "dataType": "Survey (FNDDS)",
+    "foodNutrients": [
+        {"nutrientNumber": "208", "value": 150},
+        {"nutrientNumber": "203", "value": 12.5},
+        {"nutrientNumber": "204", "value": 8.0},
+    ],
+}
+
+
+class TestProductSearch:
+    """GET /api/products/search?q=<text> -- text search, USDA-only, uncached
+    (see routes/products.py for why: no 1:1 query->product mapping)."""
+
+    def test_requires_auth(self, client):
+        response = client.get("/api/products/search?q=chicken")
+        assert response.status_code == 401
+
+    def test_missing_q_is_400(self, app, auth, client):
+        response = client.get("/api/products/search", headers=auth)
+        assert response.status_code == 400
+        assert response.get_json()["error"]
+
+    def test_whitespace_only_q_is_400(self, app, auth, client):
+        response = client.get("/api/products/search?q=%20%20%20", headers=auth)
+        assert response.status_code == 400
+
+    def test_query_too_long_is_400(self, app, auth, client):
+        from app.routes.products import MAX_QUERY_LENGTH
+        response = client.get(
+            "/api/products/search", query_string={"q": "a" * (MAX_QUERY_LENGTH + 1)},
+            headers=auth,
+        )
+        assert response.status_code == 400
+
+    def test_happy_path_returns_normalized_products(self, app, auth, client, monkeypatch):
+        monkeypatch.setenv("USDA_API_KEY", "test-key")
+        monkeypatch.setattr(usda_client, "search_by_name",
+                            lambda query, page_size=8: [SEARCH_FOOD])
+
+        response = client.get("/api/products/search?q=chicken+curry", headers=auth)
+        assert response.status_code == 200
+
+        body = response.get_json()
+        assert body["count"] == 1
+        product = body["products"][0]
+        assert product["name"] == "Chicken Curry"
+        assert product["source"] == "usda"
+        assert product["per_100g"]["calories"] == 150
+        assert product["fdc_id"] == 123456
+
+    def test_usda_unconfigured_is_503(self, app, auth, client, monkeypatch):
+        monkeypatch.delenv("USDA_API_KEY", raising=False)
+        response = client.get("/api/products/search?q=chicken", headers=auth)
+        assert response.status_code == 503
+        assert response.get_json()["error"]
+
+    def test_usda_error_is_502_not_an_empty_list(self, app, auth, client, monkeypatch):
+        """A transport failure must be a loud error, never a silent 'no results'."""
+        monkeypatch.setenv("USDA_API_KEY", "test-key")
+
+        def boom(query, page_size=8):
+            raise requests.ConnectionError("USDA down")
+        monkeypatch.setattr(usda_client, "search_by_name", boom)
+
+        response = client.get("/api/products/search?q=chicken", headers=auth)
+        assert response.status_code == 502
+        assert response.get_json()["error"]
+
+    def test_rate_limit_triggers_after_repeated_calls(self, app, auth, client, monkeypatch):
+        """Capped at 10/minute -- see routes/products.py for the budget math."""
+        monkeypatch.setenv("USDA_API_KEY", "test-key")
+        monkeypatch.setattr(usda_client, "search_by_name",
+                            lambda query, page_size=8: [SEARCH_FOOD])
+
+        for _ in range(10):
+            response = client.get("/api/products/search?q=chicken", headers=auth)
+            assert response.status_code == 200
+
+        limited = client.get("/api/products/search?q=chicken", headers=auth)
+        assert limited.status_code == 429
+
+
 def test_fuzzy_usda_result_with_wrong_upc_is_rejected(monkeypatch):
     """FDC search returns near-matches; trusting them logs the wrong food."""
     class FakeResponse:
