@@ -1,0 +1,13 @@
+{
+  "id": "ngeorge15/calorie-counter-food101-baseline",
+  "title": "calorie-counter-food101-baseline",
+  "code_file": "baseline_kaggle.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": []
+}

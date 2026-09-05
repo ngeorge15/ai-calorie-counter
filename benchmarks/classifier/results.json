@@ -7,12 +7,30 @@
       "n_classes": 101,
       "method": "torchvision Food101 official test split (manually verified, not the noisier train split); top1/top3 computed by model-training/kaggle/train_kaggle.py's evaluate() after each epoch, reported for the final/best epoch (15)"
     },
+    "imagenet_linear_probe_baseline": {
+      "top1": 0.7175,
+      "top3": 0.8674,
+      "probe_epochs": 10,
+      "method": "ImageNet-pretrained efficientnet_lite0 with the backbone frozen (requires_grad=False on every non-classifier parameter, whole model held in eval() mode so BatchNorm running stats stay put); only a fresh 101-class linear head trained, on the Food-101 train split; evaluated on the same official test split as the fine-tuned run. Ran on Kaggle GPU via model-training/kaggle/baseline/baseline_kaggle.py.",
+      "why_a_linear_probe": "A pretrained backbone carries a 1000-class ImageNet head, so Food-101 accuracy isn't directly computable for it without deciding what stands in for the head. A linear probe isolates the question that matters: how separable are the frozen ImageNet features on Food-101, and therefore what did unfreezing the backbone actually buy?"
+    },
+    "untrained_head_reference": {
+      "top1": 0.0108,
+      "top3": 0.0323,
+      "method": "Epoch 0 of the same baseline run: frozen backbone, fresh 101-class head, zero training. Recorded to show why this is NOT used as the headline baseline — it measures chance (1/101 = 0.0099), so '85.78% vs 1.08%' would be a true but empty comparison."
+    },
+    "finetuning_gain_over_linear_probe": {
+      "top1_points": 14.03,
+      "top3_points": 8.31,
+      "method": "fine_tuned_food101_test_set minus imagenet_linear_probe_baseline, same test split, same architecture. This is the measured answer to 'did fine-tuning the backbone help, and by how much.'"
+    },
     "model_size_mb": 13.6,
+    "onnx_model_size_mb": 13.3,
+    "pytorch_vs_onnx_max_abs_diff": 5.7e-06,
     "training_time_seconds_per_epoch_avg": 374.7
   },
   "not_yet_measured": {
-    "imagenet_baseline_no_finetune": "pending - run model-training/eval.py against the same test set with pretrained=True, no fine-tuning",
-    "real_photo_end_to_end": "pending - needs 30-50 real phone photos, not Food-101 images; script not yet written",
-    "server_inference_latency": "pending - needs the Flask inference endpoint built and deployed first"
+    "real_photo_end_to_end": "pending - harness exists (model-training/eval_real_photos.py, see benchmarks/classifier/REAL-PHOTOS.md) but needs 30-50 real phone photos, which cannot be substituted with Food-101 images",
+    "server_inference_latency": "pending - endpoint exists (POST /api/classify) but has not been deployed to Render, so no cold/warm numbers on the real free-tier box. Local dev-machine timings are not a substitute and are deliberately not recorded here as latency."
   }
 }
