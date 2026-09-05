@@ -1,0 +1,18 @@
+{
+  "measured_2026-09-04": {
+    "fine_tuned_food101_test_set": {
+      "top1": 0.8578,
+      "top3": 0.9505,
+      "epochs": 15,
+      "n_classes": 101,
+      "method": "torchvision Food101 official test split (manually verified, not the noisier train split); top1/top3 computed by model-training/kaggle/train_kaggle.py's evaluate() after each epoch, reported for the final/best epoch (15)"
+    },
+    "model_size_mb": 13.6,
+    "training_time_seconds_per_epoch_avg": 374.7
+  },
+  "not_yet_measured": {
+    "imagenet_baseline_no_finetune": "pending - run model-training/eval.py against the same test set with pretrained=True, no fine-tuning",
+    "real_photo_end_to_end": "pending - needs 30-50 real phone photos, not Food-101 images; script not yet written",
+    "server_inference_latency": "pending - needs the Flask inference endpoint built and deployed first"
+  }
+}

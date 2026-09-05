@@ -21,9 +21,10 @@ android/
 *.ipa
 *.app
 
-# Model training (large/binary — datasets and checkpoints don't belong in git)
+# Model training (datasets are large and reproducible from a script; the
+# trained checkpoint itself is small enough (~14MB) to commit directly so
+# a clone can run inference without retraining)
 model-training/data/
-model-training/checkpoints/
 model-training/.venv/
 
 # macOS

@@ -7,8 +7,10 @@ next phase.
 
 **Status: Phase 0 complete, Phase 1 in progress.** Scan → look up → log →
 sync works end to end, offline-first, on a real device. The food classifier
-(Phase 1) has a training pipeline but no trained model yet — see
-[Roadmap](#roadmap).
+(Phase 1) has a fine-tuned checkpoint — **85.78% top-1 / 95.05% top-3 on
+Food-101's held-out test set** — but no serving endpoint yet. See
+[Roadmap](#roadmap) and [`benchmarks/classifier/`](benchmarks/classifier)
+for the full methodology and what's still unmeasured.
 
 ## Why this exists
 
@@ -116,8 +118,9 @@ iOS; Android is untested — VisionCamera v5 exposes no equivalent of v4's
 
 - [x] **Phase 0** — auth, offline-first sync, barcode lookup chain, scan-to-log loop
 - [ ] **Phase 0.5** — recent foods, favorites, one-tap re-log
-- [ ] **Phase 1** — food classifier (fine-tuned `efficientnet_lite0` on Food-101, server-side inference), seeded from a USDA search on its top-3 predictions. Training pipeline built ([`model-training/`](model-training)); no trained checkpoint yet.
-- [ ] **Benchmarks** — classifier accuracy (Food-101 test set + real-photo end-to-end), latency, and a fine-tuned-vs-baseline comparison. Methodology written up in [`benchmarks/classifier/METHODOLOGY.md`](benchmarks/classifier/METHODOLOGY.md); no results until there's a trained model to measure.
+- [x] **Phase 1a** — fine-tune `efficientnet_lite0` on Food-101. 85.78% top-1 / 95.05% top-3 on the held-out test set, 15 epochs, trained on Kaggle's free-tier GPU.
+- [ ] **Phase 1b** — server-side inference endpoint on the Flask backend, seeded into a USDA search on the classifier's top-3 predictions.
+- [ ] **Benchmarks** — real-photo end-to-end accuracy, fine-tuned-vs-baseline comparison, and server latency still pending. Methodology and current results in [`benchmarks/classifier/`](benchmarks/classifier).
 
 ### Stretch goals (after Phase 1 ships)
 

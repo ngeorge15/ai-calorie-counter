@@ -1,7 +1,10 @@
 # Classifier benchmark methodology
 
-Status: **not yet run.** This documents the plan before any numbers exist,
-so the plan can't be quietly bent to fit whatever number comes out.
+Status: **partially measured, see results.json.** Fine-tuned Food-101
+test-set accuracy is real (85.78% top-1, 95.05% top-3, 15 epochs). The
+baseline comparison, real-photo eval, and latency numbers below are not
+measured yet — this plan was written before any numbers existed, so it
+can't be quietly bent to fit whatever came out.
 
 ## What's measured
 
