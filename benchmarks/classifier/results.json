@@ -17,7 +17,7 @@
     "untrained_head_reference": {
       "top1": 0.0108,
       "top3": 0.0323,
-      "method": "Epoch 0 of the same baseline run: frozen backbone, fresh 101-class head, zero training. Recorded to show why this is NOT used as the headline baseline — it measures chance (1/101 = 0.0099), so '85.78% vs 1.08%' would be a true but empty comparison."
+      "method": "Epoch 0 of the same baseline run: frozen backbone, fresh 101-class head, zero training. Recorded to show why this is NOT used as the headline baseline \u2014 it measures chance (1/101 = 0.0099), so '85.78% vs 1.08%' would be a true but empty comparison."
     },
     "finetuning_gain_over_linear_probe": {
       "top1_points": 14.03,
@@ -32,5 +32,26 @@
   "not_yet_measured": {
     "real_photo_end_to_end": "pending - harness exists (model-training/eval_real_photos.py, see benchmarks/classifier/REAL-PHOTOS.md) but needs 30-50 real phone photos, which cannot be substituted with Food-101 images",
     "server_inference_latency": "pending - endpoint exists (POST /api/classify) but has not been deployed to Render, so no cold/warm numbers on the real free-tier box. Local dev-machine timings are not a substitute and are deliberately not recorded here as latency."
+  },
+  "measured_2026-09-05": {
+    "serving_memory_footprint": {
+      "onnx_stack_peak_rss_mb": 135.6,
+      "onnx_breakdown_mb": {
+        "python_baseline": 13.5,
+        "flask_app_created": 76.3,
+        "onnx_model_loaded": 115.9,
+        "after_one_inference": 135.6
+      },
+      "pytorch_stack_peak_rss_mb": 247.8,
+      "pytorch_breakdown_mb": {
+        "python_baseline": 12.9,
+        "import_torch": 154.3,
+        "model_loaded": 222.5,
+        "after_one_inference": 247.8
+      },
+      "method": "resource.getrusage(RUSAGE_SELF).ru_maxrss on the dev machine (macOS arm64, so bytes not KB), measured at each step of a cold process. The PyTorch figure excludes Flask and the Mongo driver, which the ONNX figure includes -- add roughly 63MB (the measured Flask delta) for a like-for-like comparison, putting PyTorch near 310MB.",
+      "why_it_matters": "Serving ONNX rather than PyTorch was chosen on the argument that torch would not fit Render's ~512MB free tier. This is that argument measured instead of assumed: ~27% of the budget versus ~60%+. Still a dev-machine number -- Linux container overhead differs -- so it establishes the ratio, not the exact production figure.",
+      "caveat": "Not a latency measurement. Cold/warm request timing on a deployed free-tier instance remains unmeasured."
+    }
   }
 }
