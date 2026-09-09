@@ -1,0 +1,52 @@
+# Render Blueprint. This must live at the REPO ROOT — Render only
+# auto-detects render.yaml here, not inside a subdirectory. The service
+# itself lives in backend/, hence rootDir.
+#
+# rootDir changes the working directory for build and start commands only;
+# Render still checks out the whole repository. That matters because the
+# classifier loads its model from model-training/checkpoints/, resolved
+# relative to backend/app/classifier.py's own location rather than the
+# working directory. Both model.onnx and preprocessing.json are committed,
+# so a normal git deploy has them without a build step or external fetch.
+services:
+  - type: web
+    name: calorie-counter-api
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    # --workers 1 is load-bearing for two independent reasons, both of which
+    # break silently rather than loudly if a second worker is ever added:
+    #
+    #   1. app/net.py's Open Food Facts limiter is an in-process bucket. Two
+    #      workers would each believe they hold the full 15/min budget and
+    #      together exceed what OFF actually allows.
+    #   2. app/limiter.py (flask-limiter) uses in-memory storage, so the auth
+    #      and classify rate limits are per-process too — N workers multiply
+    #      every limit by N, including the brute-force guard on /auth/login.
+    #
+    # Move both to a shared store (Mongo, or Redis if one is ever added)
+    # before scaling past one worker.
+    #
+    # --timeout 60 covers ONNX inference on a cold shared-CPU instance. The
+    # model loads lazily on first request, so the very first classify after a
+    # cold start pays session-init cost on top of inference.
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 1 --timeout 60
+    healthCheckPath: /api/health
+    envVars:
+      # Set these in the Render dashboard, not here. sync:false means Render
+      # prompts for the value and never stores it in this file.
+      - key: MONGODB_URI
+        sync: false
+      - key: USDA_API_KEY
+        sync: false
+      - key: OFF_USER_AGENT
+        sync: false
+      # generateValue: Render mints a strong random secret on first deploy.
+      # Do not replace this with a literal — rotating it invalidates every
+      # issued token, which on this app means every phone silently logs out.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: "3.12.5"
