@@ -15,6 +15,47 @@ You need four values to hand:
 | `OFF_USER_AGENT` | A contact string, e.g. `CalorieCounter/1.0 (your@email)`. Open Food Facts blocks unidentified clients; this is a hard requirement of theirs, not politeness. |
 | `JWT_SECRET` | **Don't set this.** Render generates it (`generateValue: true`). |
 
+### Step 0 — creating those accounts, if you haven't
+
+Roughly 25 minutes end to end, almost all of it Atlas. Do these in order;
+Render needs the other two to exist first.
+
+**A. USDA FoodData Central key** (~2 min, do it first — the key arrives by
+email and you want it waiting)
+
+Fill in the form at https://fdc.nal.usda.gov/api-key-signup. No card, no
+approval delay. The free key allows 1,000 requests/hour, which is the exact
+budget `app/net.py` is built around.
+
+**B. MongoDB Atlas M0** (~15 min, the long pole)
+
+1. Sign up at mongodb.com/cloud/atlas, create a project.
+2. Build a cluster and **choose M0** — the free forever tier, 512MB. The
+   flow nudges toward paid tiers; M0 is under "Shared"/"Free". No card
+   needed for M0.
+3. **Database Access** → add a database user. This is *not* your Atlas
+   login — it's a separate credential the app authenticates with. Give it
+   a strong generated password and copy it now; Atlas won't show it again.
+4. **Network Access** → allow `0.0.0.0/0`.
+
+   Render's free tier has no static outbound IP, so there's no narrower
+   range to allow. This is acceptable *only* because the database is
+   defended by credentials rather than network position: the user above is
+   scoped to this one database and nothing else is exposed. If this ever
+   holds anyone's data but yours, move to a tier with a static IP and drop
+   the wildcard.
+5. **Connect → Drivers** → copy the connection string. It contains a
+   literal `<db_password>` placeholder — replace it with the password from
+   step 3, or the app will fail to authenticate with a confusing error.
+
+**C. Render account** (~3 min)
+
+Sign up at render.com and connect your GitHub account. This grants Render
+read access to your repositories so it can deploy from them — a permission
+grant worth understanding before you click it, not just clicking through.
+
+Then continue to *Deploy* below.
+
 ## Deploy
 
 1. render.com → **New** → **Blueprint**
