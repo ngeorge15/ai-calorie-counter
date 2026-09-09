@@ -1,0 +1,51 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "sideload": {
+      "//": [
+        "Device build for sideloading via SideStore. withoutCredentials skips",
+        "EAS's signing setup entirely, which is what makes this possible with",
+        "no paid Apple Developer account — SideStore re-signs with your free",
+        "Apple ID at install time instead.",
+        "",
+        "distribution:internal produces a downloadable artifact rather than",
+        "something aimed at App Store Connect.",
+        "",
+        "EXPO_PUBLIC_API_BASE_URL is baked in AT BUILD TIME, not read at",
+        "runtime — so the backend has to be deployed before this build runs,",
+        "and pointing the app somewhere else later means rebuilding."
+      ],
+      "extends": "production",
+      "distribution": "internal",
+      "ios": {
+        "withoutCredentials": true,
+        "buildConfiguration": "Release"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://calorie-counter-api.onrender.com"
+      }
+    },
+    "simulator": {
+      "//": [
+        "Runs in the iOS Simulator on a Mac — no device, no signing, no",
+        "SideStore. Useful for checking the UI compiles and navigates, but it",
+        "CANNOT test the camera: the Simulator has no camera hardware, so",
+        "barcode scanning and photo capture are both untestable here. Those",
+        "need a real device."
+      ],
+      "extends": "development",
+      "ios": { "simulator": true }
+    },
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": { "withoutCredentials": true }
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  }
+}
