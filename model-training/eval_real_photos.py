@@ -135,21 +135,61 @@ def predict_top3(model, classes: list[str], eval_tf, image_path: Path, device: t
     ]
 
 
+def wilson_interval(successes: int, n: int, z: float = 1.96) -> dict | None:
+    """95% Wilson score interval for a binomial proportion.
+
+    Wilson rather than the textbook normal approximation (p ± z·√(p(1-p)/n)),
+    because this eval runs on a deliberately small hand-collected photo set
+    and the normal approximation misbehaves exactly there: it produces
+    impossible bounds outside [0, 1] near p=0 or p=1, and its coverage is
+    poor for small n. Wilson stays inside [0, 1] and holds up at n=20.
+
+    The point is not decoration. At n=20, an observed 85% carries a CI of
+    roughly [64%, 95%] — quoting "85%" alone from a sample that size implies
+    a precision the data does not support, which is the exact failure this
+    project's methodology is written to avoid.
+    """
+    if n == 0:
+        return None
+    p = successes / n
+    denom = 1 + z**2 / n
+    center = (p + z**2 / (2 * n)) / denom
+    margin = z * ((p * (1 - p) / n + z**2 / (4 * n**2)) ** 0.5) / denom
+    return {
+        "point": round(p, 4),
+        "ci95_low": round(max(0.0, center - margin), 4),
+        "ci95_high": round(min(1.0, center + margin), 4),
+        "n": n,
+    }
+
+
 def compute_classifier_accuracy(records: list[dict]) -> dict:
     in_vocab = [r for r in records if r["food101_label"] is not None]
     if not in_vocab:
         return {"n_in_vocab": 0, "top1": None, "top3": None}
-    top1 = sum(r["classifier_top1_correct"] for r in in_vocab) / len(in_vocab)
-    top3 = sum(r["classifier_top3_correct"] for r in in_vocab) / len(in_vocab)
-    return {"n_in_vocab": len(in_vocab), "top1": top1, "top3": top3}
+    n = len(in_vocab)
+    top1_hits = sum(r["classifier_top1_correct"] for r in in_vocab)
+    top3_hits = sum(r["classifier_top3_correct"] for r in in_vocab)
+    return {
+        "n_in_vocab": n,
+        "top1": top1_hits / n,
+        "top3": top3_hits / n,
+        "top1_ci95": wilson_interval(top1_hits, n),
+        "top3_ci95": wilson_interval(top3_hits, n),
+    }
 
 
 def compute_end_to_end_rate(records: list[dict]) -> dict:
     evaluated = [r for r in records if r["end_to_end_match"] is not None]
     if not evaluated:
         return {"n_evaluated": 0, "success_rate_top3": None}
-    rate = sum(r["end_to_end_match"] for r in evaluated) / len(evaluated)
-    return {"n_evaluated": len(evaluated), "success_rate_top3": rate}
+    n = len(evaluated)
+    hits = sum(r["end_to_end_match"] for r in evaluated)
+    return {
+        "n_evaluated": n,
+        "success_rate_top3": hits / n,
+        "success_rate_ci95": wilson_interval(hits, n),
+    }
 
 
 def run(args) -> dict:

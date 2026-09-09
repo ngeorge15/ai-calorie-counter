@@ -168,3 +168,54 @@ purpose (another workstream may be editing `results.json` concurrently).
 Once the numbers are reviewed and trusted, fold the relevant fields into
 `results.json`'s `real_photo_end_to_end` entry by hand, and update
 METHODOLOGY.md's "what's measured" section to match.
+
+## Collecting the photos without eating 50 meals
+
+The eval measures whether the classifier survives real phone photos —
+real lighting, real angles, real plates — versus the curated dataset
+images it trained on. Whether you ate the food is irrelevant to that, so
+don't wait on your own meal schedule.
+
+Fast sources, all prepared dishes rather than packaged goods (packaged
+goods are what the barcode scanner is for, and tell you nothing about a
+classifier trained on plated food):
+
+- a food court or cafeteria — a dozen distinct dishes in twenty minutes
+- a grocery store's hot bar, deli counter, or prepared-foods section
+- a bakery case
+- any restaurant meal you're having anyway
+
+One trip gets 20-30. Let the rest accumulate from meals over a week or
+two — `make_manifest.py` merges new photos into an existing manifest
+without touching labels you've already written, so this is designed to be
+done incrementally.
+
+## Scaffolding the manifest
+
+    python make_manifest.py --photos-dir ~/Desktop/meal-photos --out manifest.json
+
+Writes one entry per image with `filename` filled in, leaving
+`ground_truth` for you. Re-run it after adding photos; existing labels
+survive.
+
+`--hint` additionally records the model's own top-3 guesses in a
+`model_hint` field, purely so you can skim the class vocabulary instead
+of recalling exact Food-101 spellings. **The eval never reads that
+field**, and copying a hint into `ground_truth` without looking at the
+photo grades the model against its own output — a guaranteed perfect
+score measuring nothing.
+
+## Sample size and what you can honestly claim
+
+Results now carry a 95% Wilson confidence interval alongside every rate.
+This matters more than it might seem:
+
+| observed | n | 95% CI |
+|---|---|---|
+| 85% | 20 | 64.0% – 94.8% |
+| 86% | 50 | 73.8% – 93.0% |
+
+At n=20, "85% accurate" alone implies a precision the data doesn't
+support. Quote the interval and the sample size together, or quote
+neither. A small honest number with error bars is worth more than a
+large one that doesn't survive being asked "out of how many?"

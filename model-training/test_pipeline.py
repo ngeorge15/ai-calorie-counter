@@ -7,6 +7,7 @@ from PIL import Image
 from data import build_model, build_transforms, label_to_query
 from export_onnx import build_preprocessing_metadata
 from eval_real_photos import (
+    wilson_interval,
     compute_classifier_accuracy,
     compute_end_to_end_rate,
     load_manifest,
@@ -225,3 +226,54 @@ def test_preprocessing_metadata_class_list_preserves_order_and_length():
     assert metadata["classes"] == classes
     assert len(metadata["classes"]) == len(classes)
     assert len(set(metadata["classes"])) == len(classes)  # no duplicates introduced
+
+
+def test_wilson_interval_brackets_the_point_estimate():
+    r = wilson_interval(17, 20)
+    assert r["n"] == 20
+    assert r["point"] == 0.85
+    assert r["ci95_low"] < r["point"] < r["ci95_high"]
+
+
+def test_wilson_interval_stays_inside_zero_to_one_at_the_extremes():
+    """The reason Wilson is used instead of the normal approximation: at
+    p=0 or p=1 the textbook formula produces a degenerate or out-of-range
+    interval, which is exactly the small-sample regime this eval runs in."""
+    perfect = wilson_interval(20, 20)
+    assert perfect["ci95_high"] <= 1.0
+    assert perfect["ci95_low"] < 1.0, "20/20 must not imply zero uncertainty"
+
+    zero = wilson_interval(0, 20)
+    assert zero["ci95_low"] >= 0.0
+    assert zero["ci95_high"] > 0.0, "0/20 must not imply certainty of failure"
+
+
+def test_wilson_interval_narrows_as_n_grows():
+    small = wilson_interval(17, 20)
+    large = wilson_interval(170, 200)
+    small_width = small["ci95_high"] - small["ci95_low"]
+    large_width = large["ci95_high"] - large["ci95_low"]
+    assert large_width < small_width
+
+
+def test_wilson_interval_undefined_for_empty_sample():
+    assert wilson_interval(0, 0) is None
+
+
+def test_classifier_accuracy_reports_intervals_alongside_point_estimates():
+    records = [
+        {"food101_label": "pizza", "classifier_top1_correct": True,
+         "classifier_top3_correct": True},
+        {"food101_label": "sushi", "classifier_top1_correct": False,
+         "classifier_top3_correct": True},
+        # Out-of-vocabulary entries are excluded from classifier accuracy:
+        # the model cannot be wrong about a class it never learned.
+        {"food101_label": None, "classifier_top1_correct": False,
+         "classifier_top3_correct": False},
+    ]
+    result = compute_classifier_accuracy(records)
+    assert result["n_in_vocab"] == 2
+    assert result["top1"] == 0.5
+    assert result["top3"] == 1.0
+    assert result["top1_ci95"]["n"] == 2
+    assert result["top3_ci95"]["ci95_high"] <= 1.0
